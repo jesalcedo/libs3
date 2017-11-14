@@ -320,9 +320,14 @@ static S3Status compose_amz_headers(const RequestParams *params,
         for (i = 0; i < properties->metaDataCount; i++) {
             const S3NameValue *property = &(properties->metaData[i]);
             char headerName[S3_MAX_METADATA_SIZE - sizeof(": v")];
-            int l = snprintf(headerName, sizeof(headerName),
+            int l = 0;
+            if (strcmp(property->name, S3_TAGGING_DIRECTIVE) == 0) {
+                l = snprintf(headerName, sizeof(headerName), "%s", S3_TAGGING_HEADER_NAME);
+            } else {
+                l = snprintf(headerName, sizeof(headerName),
                              S3_METADATA_HEADER_NAME_PREFIX "%s",
                              property->name);
+            }
             char *hn = headerName;
             header_name_tolower_copy(hn, l);
             // Copy in the value

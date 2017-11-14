@@ -153,6 +153,15 @@ extern "C" {
  **/
 #define S3_METADATA_HEADER_NAME_PREFIX     "x-amz-meta-"
 
+/**
+ * the header name to send to create Object Tags
+ **/
+#define S3_TAGGING_HEADER_NAME             "x-amz-tagging"
+
+/**
+ * the value a caller should set in the S3PutProperties to use Object Tags
+ **/
+#define S3_TAGGING_DIRECTIVE               "tagging"
 
 /**
  * S3_MAX_METADATA_COUNT is the maximum number of x-amz-meta- headers that
