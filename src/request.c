@@ -54,7 +54,7 @@ static int requestStackCountG;
 
 char defaultHostNameG[S3_MAX_HOSTNAME_SIZE];
 char whichRegionIsHereG[S3_MAX_HOSTNAME_SIZE] = "us-east-1";
-
+char caInfoG[S3_MAX_HOSTNAME_SIZE] = {0};
 
 typedef struct RequestComputedValues
 {
@@ -1364,6 +1364,10 @@ static S3Status setup_curl(Request *request,
     // The request_context may be set to override this
     curl_easy_setopt_safe(CURLOPT_SSL_VERIFYPEER, verifyPeer);
 
+    if (caInfoG[0]) {
+        curl_easy_setopt_safe(CURLOPT_CAINFO, caInfoG);
+    }
+    
     // Follow any redirection directives that S3 sends
     curl_easy_setopt_safe(CURLOPT_FOLLOWLOCATION, 1);
 
@@ -1598,6 +1602,17 @@ S3Status S3_set_region_name(const char *regionName)
     if (regionName != NULL) {
         if (snprintf(whichRegionIsHereG, sizeof(whichRegionIsHereG),
                      "%s", regionName) >= S3_MAX_HOSTNAME_SIZE) {
+            return S3StatusUriTooLong;
+        }
+    }
+    return S3StatusOK;
+}
+
+S3Status S3_set_ca_info(const char *caInfo)
+{
+    if (caInfo != NULL) {
+        if (snprintf(caInfoG, sizeof(caInfoG),
+                     "%s", caInfo) >= S3_MAX_HOSTNAME_SIZE) {
             return S3StatusUriTooLong;
         }
     }

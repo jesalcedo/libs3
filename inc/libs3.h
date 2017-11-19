@@ -1477,6 +1477,12 @@ S3Status S3_initialize(const char *userAgentInfo, int flags,
 S3Status S3_set_region_name(const char *regionName);
 
 /**
+ * Set the absolute path to the Certificate Authorities to use for SSL. This is
+ * only required if the default CA's are not in the standard location.
+ */
+S3Status S3_set_ca_info(const char * caInfo);
+
+/**
  * Must be called once per program for each call to libs3_initialize().  After
  * this call is complete, no libs3 function may be called except
  * S3_initialize().
