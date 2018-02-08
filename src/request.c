@@ -27,6 +27,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/utsname.h>
@@ -141,6 +142,7 @@ static void request_headers_done(Request *request)
     request->httpResponseCode = 0;
     if (curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, 
                           &httpResponseCode) != CURLE_OK) {
+        fprintf(stderr, "request_headers_done.curl_easy_getinfo: %s\n", curl_easy_strerror(res));
         // Not able to get the HTTP response code - error
         request->status = S3StatusInternalError;
         return;
@@ -1759,11 +1761,12 @@ void request_perform(const RequestParams *params, S3RequestContext *context)
                 context->requests->prev->next = request;
                 context->requests->prev = request;
             }
-            else {
+            else {                
                 context->requests = request->next = request->prev = request;
             }
         }
         else {
+            fprintf(stderr, "request_perform.curl_multi_add_handle failed: %s\n", curl_easy_strerror(code));
             if (request->status == S3StatusOK) {
                 request->status = (code == CURLM_OUT_OF_MEMORY) ?
                     S3StatusOutOfMemory : S3StatusInternalError;
@@ -1775,6 +1778,7 @@ void request_perform(const RequestParams *params, S3RequestContext *context)
     else {
         CURLcode code = curl_easy_perform(request->curl);
         if ((code != CURLE_OK) && (request->status == S3StatusOK)) {
+            fprintf(stderr, "request_perform.curl_easy_perform failed: %s\n", curl_easy_strerror(code));
             request->status = request_curl_code_to_status(code);
         }
 
