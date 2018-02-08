@@ -140,9 +140,10 @@ static void request_headers_done(Request *request)
     // Get the http response code
     long httpResponseCode;
     request->httpResponseCode = 0;
-    if (curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, 
-                          &httpResponseCode) != CURLE_OK) {
-        fprintf(stderr, "request_headers_done.curl_easy_getinfo: %s\n", curl_easy_strerror(res));
+    CURLcode status;
+    if ((status = curl_easy_getinfo(request->curl, CURLINFO_RESPONSE_CODE, 
+                                    &httpResponseCode)) != CURLE_OK) {
+        fprintf(stderr, "request_headers_done.curl_easy_getinfo: %s\n", curl_easy_strerror(status));
         // Not able to get the HTTP response code - error
         request->status = S3StatusInternalError;
         return;
