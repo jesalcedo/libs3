@@ -44,6 +44,7 @@ void S3_put_object(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypePUT,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -233,6 +234,7 @@ void S3_copy_object_range(const S3BucketContext *bucketContext, const char *key,
         { bucketContext->hostName,                    // hostName
           destinationBucket ? destinationBucket : 
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -274,6 +276,7 @@ void S3_get_object(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypeGET,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -313,6 +316,7 @@ void S3_head_object(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypeHEAD,                          // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -352,6 +356,7 @@ void S3_delete_object(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypeDELETE,                        // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId

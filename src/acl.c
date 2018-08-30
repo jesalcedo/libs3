@@ -124,6 +124,7 @@ void S3_get_acl(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypeGET,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -323,6 +324,7 @@ void S3_set_acl(const S3BucketContext *bucketContext, const char *key,
         HttpRequestTypePUT,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId

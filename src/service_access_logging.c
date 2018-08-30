@@ -325,6 +325,7 @@ void S3_get_server_access_logging(const S3BucketContext *bucketContext,
         HttpRequestTypeGET,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -530,6 +531,7 @@ void S3_set_server_access_logging(const S3BucketContext *bucketContext,
         HttpRequestTypePUT,                           // httpRequestType
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
+          bucketContext->hostHeaderValue,             // hostHeaderValue
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId

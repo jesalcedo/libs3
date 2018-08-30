@@ -711,6 +711,14 @@ typedef struct S3BucketContext
     const char *bucketName;
 
     /**
+     * The value to put in the Host header. This is useful if you are doing something
+     * crazy like having your own domain mapped to S3. Note that if you use this option
+     * then custom hostname verification will be done to make sure that the server cert
+     * presented matches the value you have specified here
+     */
+    const char *hostHeaderValue;
+
+    /**
      * The protocol to use when accessing the bucket
      **/
     S3Protocol protocol;

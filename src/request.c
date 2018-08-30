@@ -498,6 +498,17 @@ static S3Status compose_standard_headers(const RequestParams *params,
             len--;
         }
         values->hostHeader[len] = 0;
+    } else if (params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
+        // forced value for Host header
+        size_t len = snprintf(values->hostHeader, sizeof(values->hostHeader),
+                             "Host: %s", params->bucketContext.hostHeaderValue);
+        if (len >= sizeof(values->hostHeader)) {
+            return S3StatusUriTooLong;
+        }
+        while (is_blank(values->hostHeader[len])) {
+            len--;
+        }
+        values->hostHeader[len] = 0;
     } else if (signatureVersionG == S3SignatureV4) {
         const char *requestHostName = params->bucketContext.hostName
                 ? params->bucketContext.hostName : defaultHostNameG;
@@ -1307,6 +1318,68 @@ S3Status compose_auth4_header(Request *request,
     return S3StatusOK;
 }
 
+static CURLcode ssl_context_callback(CURL *handle, SSL_CTX *context, void *data) 
+{ 
+    SSL_CTX_set_cert_verify_callback(context, &ssl_verify_callback, data); 
+} 
+
+static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data) 
+{ 
+    X509 *peer_cert = x509_context->cert; 
+    const char * host = (const char *)data;
+
+    // Now you can do your own host name validation of peerCert, and if there's an error call 
+    // X509_STORE_CTX_set_error(x509Context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+    // return 1 for success, 0 to abort 
+
+    int common_name_loc = -1;
+    X509_NAME_ENTRY *common_name_entry = NULL;
+    ASN1_STRING *common_name_asn1 = NULL;
+    char *common_name_str = NULL;
+    int common_name_strlen = 0;
+
+    // Find the position of the CN field in the Subject field of the certificate
+    common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(peer_cert), NID_commonName, -1);
+    if (common_name_loc < 0) {
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        return 0;
+    }
+
+    // Extract the CN field
+    common_name_entry = X509_NAME_get_entry(X509_get_subject_name(peer_cert), common_name_loc);
+    if (common_name_entry == NULL) {
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        return 0;
+    }
+
+    // Convert the CN field to a C string
+    common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
+    if (common_name_asn1 == NULL) {
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        return 0;
+    }
+    common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
+    common_name_strlen = strlen(common_name_str);
+
+    // Make sure there isn't an embedded NUL character in the CN
+    if ((size_t)ASN1_STRING_length(common_name_asn1) != common_name_strlen) {
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        return 0;
+    }
+
+    // Compare expected hostname with the CN
+    if (common_name_strlen == (strlen(host) + 2) &&
+        common_name_str[0] == '*' &&
+        common_name_str[1] == '.' &&
+        strcmp(common_name_str + 2, host) == 0) {
+        // this is what we want!
+        return 1;
+    }
+
+    X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+    return 0;
+} 
+
 // Sets up the curl handle given the completely computed RequestParams
 static S3Status setup_curl(Request *request,
                            const RequestParams *params,
@@ -1369,6 +1442,12 @@ static S3Status setup_curl(Request *request,
 
     if (caInfoG[0]) {
         curl_easy_setopt_safe(CURLOPT_CAINFO, caInfoG);
+    }
+
+    if (verifyPeer && params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
+        // we're installing our own hostname verification here
+        curl_easy_setopt_safe(CURLOPT_SSL_CTX_FUNCTION, &sslContextCallback); 
+        curl_easy_setopt_safe(CURLOPT_SSL_CTX_DATA, params->bucketContext.hostHeaderValue);
     }
     
     // Follow any redirection directives that S3 sends
