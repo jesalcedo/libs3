@@ -37,6 +37,7 @@
 #include "util.h"
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
+#include <openssl/ssl.h>
 #include <unistd.h>
 
 #define USER_AGENT_SIZE 256
@@ -1318,11 +1319,6 @@ S3Status compose_auth4_header(Request *request,
     return S3StatusOK;
 }
 
-static CURLcode ssl_context_callback(CURL *handle, SSL_CTX *context, void *data) 
-{ 
-    SSL_CTX_set_cert_verify_callback(context, &ssl_verify_callback, data); 
-} 
-
 static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data) 
 { 
     X509 *peer_cert = x509_context->cert; 
@@ -1336,7 +1332,7 @@ static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data)
     X509_NAME_ENTRY *common_name_entry = NULL;
     ASN1_STRING *common_name_asn1 = NULL;
     char *common_name_str = NULL;
-    int common_name_strlen = 0;
+    size_t common_name_strlen = 0;
 
     // Find the position of the CN field in the Subject field of the certificate
     common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(peer_cert), NID_commonName, -1);
@@ -1378,6 +1374,12 @@ static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data)
 
     X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
     return 0;
+} 
+
+static CURLcode ssl_context_callback(CURL *handle, SSL_CTX *context, void *data) 
+{ 
+    SSL_CTX_set_cert_verify_callback(context, &ssl_verify_callback, data); 
+    return CURLE_OK;
 } 
 
 // Sets up the curl handle given the completely computed RequestParams
@@ -1446,7 +1448,7 @@ static S3Status setup_curl(Request *request,
 
     if (verifyPeer && params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
         // we're installing our own hostname verification here
-        curl_easy_setopt_safe(CURLOPT_SSL_CTX_FUNCTION, &ssl_context_callback); 
+        curl_easy_setopt_safe(CURLOPT_SSL_CTX_FUNCTION, (curl_ssl_ctx_callback)&ssl_context_callback); 
         curl_easy_setopt_safe(CURLOPT_SSL_CTX_DATA, params->bucketContext.hostHeaderValue);
     }
     

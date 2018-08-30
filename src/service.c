@@ -163,6 +163,7 @@ void S3_list_service(S3Protocol protocol, const char *accessKeyId,
         HttpRequestTypeGET,                           // httpRequestType
         { hostName,                                   // hostName
           0,                                          // bucketName
+          NULL,                                       // hostHeaderValue
           protocol,                                   // protocol
           S3UriStylePath,                             // uriStyle
           accessKeyId,                                // accessKeyId
