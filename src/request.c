@@ -1319,39 +1319,52 @@ S3Status compose_auth4_header(Request *request,
     return S3StatusOK;
 }
 
-static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data) 
+static int ssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_context) 
 { 
-    X509 *peer_cert = x509_context->cert; 
-    const char * host = (const char *)data;
-
-    // Now you can do your own host name validation of peerCert, and if there's an error call 
-    // X509_STORE_CTX_set_error(x509Context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
-    // return 1 for success, 0 to abort 
-
+    SSL * ssl;
     int common_name_loc = -1;
     X509_NAME_ENTRY *common_name_entry = NULL;
     ASN1_STRING *common_name_asn1 = NULL;
     char *common_name_str = NULL;
     size_t common_name_strlen = 0;
+    int depth = X509_STORE_CTX_get_error_depth(x509_context);
+   
+    if (!preverify_ok) {
+        // something already failed, so just return
+        return preverify_ok;
+    }
+
+    if (depth != 0) {
+        // we're only doing work on the leaf cert (at depth 0)
+        return preverify_ok;
+    }
+
+    X509 * peer_cert = X509_STORE_CTX_get_current_cert(x509_context);
+    ssl = X509_STORE_CTX_get_ex_data(x509_context, SSL_get_ex_data_X509_STORE_CTX_idx());
+    SSL_CTX * ctx = SSL_get_SSL_CTX(ssl);
+    const char * host = SSL_CTX_get_app_data(ctx);
 
     // Find the position of the CN field in the Subject field of the certificate
     common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(peer_cert), NID_commonName, -1);
     if (common_name_loc < 0) {
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        //fprintf(stderr, "Could not find CN in server cert\n");
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
         return 0;
     }
 
     // Extract the CN field
     common_name_entry = X509_NAME_get_entry(X509_get_subject_name(peer_cert), common_name_loc);
     if (common_name_entry == NULL) {
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        //fprintf(stderr, "Failed to get CN from server cert\n");
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
         return 0;
     }
 
     // Convert the CN field to a C string
     common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
     if (common_name_asn1 == NULL) {
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        //fprintf(stderr, "Failed to get CN data from server cert\n");
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
         return 0;
     }
     common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
@@ -1359,7 +1372,8 @@ static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data)
 
     // Make sure there isn't an embedded NUL character in the CN
     if ((size_t)ASN1_STRING_length(common_name_asn1) != common_name_strlen) {
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+        //fprintf(stderr, "CN data from server cert malformed\n");
+        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
         return 0;
     }
 
@@ -1369,16 +1383,20 @@ static int ssl_verify_callback(X509_STORE_CTX *x509_context, void *data)
         common_name_str[1] == '.' &&
         strcmp(common_name_str + 2, host) == 0) {
         // this is what we want!
+        //fprintf(stderr, "'%s' in server cert MATCHES with '%s' as Host\n", common_name_str, host);
+        X509_STORE_CTX_set_error(x509_context, X509_V_OK); 
         return 1;
     }
-
-    X509_STORE_CTX_set_error(x509_context, X509_V_ERR_SUBJECT_ISSUER_MISMATCH); 
+    //fprintf(stderr, "'%s' in server cert doesn't match up with '%s' as Host\n", common_name_str, host);
+    X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
     return 0;
 } 
 
 static CURLcode ssl_context_callback(CURL *handle, SSL_CTX *context, void *data) 
 { 
-    SSL_CTX_set_cert_verify_callback(context, &ssl_verify_callback, data); 
+    //SSL_CTX_set_cert_verify_callback(context, &ssl_verify_callback, data); 
+    SSL_CTX_set_verify(context, SSL_VERIFY_PEER, &ssl_verify_callback);
+    SSL_CTX_set_app_data(context, data);
     return CURLE_OK;
 } 
 
