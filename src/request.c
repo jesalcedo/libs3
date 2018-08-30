@@ -1448,6 +1448,9 @@ static S3Status setup_curl(Request *request,
 
     if (verifyPeer && params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
         // we're installing our own hostname verification here
+        // turn OFF default hostname verification
+        curl_easy_setopt_safe(CURLOPT_SSL_VERIFYHOST, 0); 
+        // install our own hostname verification
         curl_easy_setopt_safe(CURLOPT_SSL_CTX_FUNCTION, (curl_ssl_ctx_callback)&ssl_context_callback); 
         curl_easy_setopt_safe(CURLOPT_SSL_CTX_DATA, params->bucketContext.hostHeaderValue);
     }
