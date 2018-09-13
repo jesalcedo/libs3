@@ -37,6 +37,7 @@
 #include "util.h"
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
+#include <openssl/x509v3.h>
 #include <openssl/ssl.h>
 #include <unistd.h>
 
@@ -1319,14 +1320,96 @@ S3Status compose_auth4_header(Request *request,
     return S3StatusOK;
 }
 
-static int ssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_context) 
-{ 
-    SSL * ssl;
+/**
+ *
+ * @return 1 if match found, 0 if no SubjectAlternativeNames present, -1 if no match found
+ */
+static int matches_subject_alt_name(const char * hostname, const X509 * server_cert)
+{
+    int i;
+    int san_names_count = -1;
+    int result = -1;
+    STACK_OF(GENERAL_NAME) *san_names = NULL;
+
+    san_names = X509_get_ext_d2i((X509 *)server_cert, NID_subject_alt_name, NULL, NULL);
+    if (san_names == NULL) {
+        return 0;
+    }
+
+    san_names_count = sk_GENERAL_NAME_num(san_names);
+
+    for (i = 0; i < san_names_count; i++) {
+        const GENERAL_NAME * current_name = sk_GENERAL_NAME_value(san_names, i);
+
+        if (current_name->type == GEN_DNS) {
+            char * dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
+
+            // Make sure there isn't an embedded NUL character in the DNS name
+            if (ASN1_STRING_length(current_name->d.dNSName) != strlen(dns_name)) {
+                // if there is a NUL, then we're considering this a malformed cert
+                // and we're not going to look any further
+                break;
+            } else if (strcasecmp(hostname, dns_name) == 0){
+                result = 1;
+                break;
+            }
+        }
+    }
+
+    sk_GENERAL_NAME_pop_free(san_names, GENERAL_NAME_free);
+
+    return result;
+}
+
+static int matches_common_name(const char * hostname, const X509 * server_cert)
+{
     int common_name_loc = -1;
     X509_NAME_ENTRY *common_name_entry = NULL;
     ASN1_STRING *common_name_asn1 = NULL;
     char *common_name_str = NULL;
     size_t common_name_strlen = 0;
+
+    // Find the position of the CN field in the Subject field of the certificate
+    common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name((X509 *)server_cert), NID_commonName, -1);
+    if (common_name_loc < 0) {
+        //fprintf(stderr, "Could not find CN in server cert\n");
+        return -1;
+    }
+
+    // Extract the CN field
+    common_name_entry = X509_NAME_get_entry(X509_get_subject_name((X509 *)server_cert), common_name_loc);
+    if (common_name_entry == NULL) {
+        //fprintf(stderr, "Failed to get CN from server cert\n");
+        return -1;
+    }
+
+    // Convert the CN field to a C string
+    common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
+    if (common_name_asn1 == NULL) {
+        //fprintf(stderr, "Failed to get CN data from server cert\n");
+        return -1;
+    }
+    common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
+    common_name_strlen = strlen(common_name_str);
+
+    // Make sure there isn't an embedded NUL character in the CN
+    if ((size_t)ASN1_STRING_length(common_name_asn1) != common_name_strlen) {
+        //fprintf(stderr, "CN data from server cert malformed\n");
+        return -1;
+    }
+
+    // Compare expected hostname with the CN
+    if (strcasecmp(hostname, common_name_str) == 0) {
+        return 1;
+    } else {
+        //fprintf(stderr, "CN in server cert '%s' doesn't match '%s'\n", common_name_str, hostname);
+        return -1;
+    }
+} 
+
+static int ssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_context) 
+{ 
+    SSL * ssl;
     int depth = X509_STORE_CTX_get_error_depth(x509_context);
    
     if (!preverify_ok) {
@@ -1344,52 +1427,21 @@ static int ssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_context)
     SSL_CTX * ctx = SSL_get_SSL_CTX(ssl);
     const char * host = SSL_CTX_get_app_data(ctx);
 
-    // Find the position of the CN field in the Subject field of the certificate
-    common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(peer_cert), NID_commonName, -1);
-    if (common_name_loc < 0) {
-        //fprintf(stderr, "Could not find CN in server cert\n");
+    int match = matches_subject_alt_name(host, peer_cert);
+
+    if (match == 0) {
+        // no SAN!
+        match = matches_common_name(host, peer_cert);
+    }
+
+    if (match != 1) {
+        fprintf(stderr, "expected hostname '%s' doesn't match up with presented cert\n", host);
         X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
         return 0;
     }
 
-    // Extract the CN field
-    common_name_entry = X509_NAME_get_entry(X509_get_subject_name(peer_cert), common_name_loc);
-    if (common_name_entry == NULL) {
-        //fprintf(stderr, "Failed to get CN from server cert\n");
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
-        return 0;
-    }
-
-    // Convert the CN field to a C string
-    common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
-    if (common_name_asn1 == NULL) {
-        //fprintf(stderr, "Failed to get CN data from server cert\n");
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
-        return 0;
-    }
-    common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
-    common_name_strlen = strlen(common_name_str);
-
-    // Make sure there isn't an embedded NUL character in the CN
-    if ((size_t)ASN1_STRING_length(common_name_asn1) != common_name_strlen) {
-        //fprintf(stderr, "CN data from server cert malformed\n");
-        X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
-        return 0;
-    }
-
-    // Compare expected hostname with the CN
-    if (common_name_strlen == (strlen(host) + 2) &&
-        common_name_str[0] == '*' &&
-        common_name_str[1] == '.' &&
-        strcmp(common_name_str + 2, host) == 0) {
-        // this is what we want!
-        //fprintf(stderr, "'%s' in server cert MATCHES with '%s' as Host\n", common_name_str, host);
-        X509_STORE_CTX_set_error(x509_context, X509_V_OK); 
-        return 1;
-    }
-    //fprintf(stderr, "'%s' in server cert doesn't match up with '%s' as Host\n", common_name_str, host);
-    X509_STORE_CTX_set_error(x509_context, X509_V_ERR_APPLICATION_VERIFICATION); 
-    return 0;
+    X509_STORE_CTX_set_error(x509_context, X509_V_OK); 
+    return 1;
 } 
 
 static CURLcode ssl_context_callback(CURL *handle, SSL_CTX *context, void *data) 
