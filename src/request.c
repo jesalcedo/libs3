@@ -68,11 +68,12 @@ typedef struct RequestComputedValues
     int amzHeadersCount;
 
     // Storage for amzHeaders (the +256 is for x-amz-acl and x-amz-date)
-    char amzHeadersRaw[COMPACTED_METADATA_BUFFER_SIZE + 256 + 1];
+    // +4096 is for the possibility of x-amz-security-token
+    char amzHeadersRaw[COMPACTED_METADATA_BUFFER_SIZE + 256 + 4096 + 1];
 
     // Canonicalized x-amz- headers
     string_multibuffer(canonicalizedAmzHeaders,
-                       COMPACTED_METADATA_BUFFER_SIZE + 256 + 1);
+                       COMPACTED_METADATA_BUFFER_SIZE + 256 + 4096 + 1);
 
     // URL-Encoded key
     char urlEncodedKey[MAX_URLENCODED_KEY_SIZE + 1];
@@ -1326,7 +1327,7 @@ S3Status compose_auth4_header(Request *request,
  */
 static int matches_subject_alt_name(const char * hostname, const X509 * server_cert)
 {
-    int i;
+    int i, hostname_len;
     int san_names_count = -1;
     int result = -1;
     STACK_OF(GENERAL_NAME) *san_names = NULL;
@@ -1338,20 +1339,34 @@ static int matches_subject_alt_name(const char * hostname, const X509 * server_c
 
     san_names_count = sk_GENERAL_NAME_num(san_names);
 
-    for (i = 0; i < san_names_count; i++) {
-        const GENERAL_NAME * current_name = sk_GENERAL_NAME_value(san_names, i);
+    if (san_names_count > 0) {
+        hostname_len = strlen(hostname);
 
-        if (current_name->type == GEN_DNS) {
-            char * dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
+        for (i = 0; i < san_names_count; i++) {
+            const GENERAL_NAME * current_name = sk_GENERAL_NAME_value(san_names, i);
 
-            // Make sure there isn't an embedded NUL character in the DNS name
-            if (ASN1_STRING_length(current_name->d.dNSName) != strlen(dns_name)) {
-                // if there is a NUL, then we're considering this a malformed cert
-                // and we're not going to look any further
-                break;
-            } else if (strcasecmp(hostname, dns_name) == 0){
-                result = 1;
-                break;
+            if (current_name->type == GEN_DNS) {
+                char * dns_name = (char *)ASN1_STRING_data(current_name->d.dNSName);
+                int dns_len = strlen(dns_name);
+
+                // Make sure there isn't an embedded NUL character in the DNS name
+                if (ASN1_STRING_length(current_name->d.dNSName) != dns_len) {
+                    // if there is a NUL, then we're considering this a malformed cert
+                    // and we're not going to look any further
+                    break;
+                } else if (hostname_len == dns_len && strncasecmp(hostname, dns_name, hostname_len) == 0){
+                    // exact match (case-insensitive)
+                    result = 1;
+                    break;
+                } else if (dns_len > 2 && dns_name[0] == '*' && dns_name[1] == '.') {
+                    // simple single-wildcard matching
+                    char * dns_suffix = dns_name + 1;
+                    char * target_suffix = strchr(hostname, '.');
+                    if (target_suffix && strcasecmp(target_suffix, dns_suffix) == 0) {
+                        result = 1;
+                        break;
+                    }
+                }
             }
         }
     }
