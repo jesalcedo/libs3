@@ -1531,6 +1531,9 @@ static S3Status setup_curl(Request *request,
         curl_easy_setopt_safe(CURLOPT_CAINFO, caInfoG);
     }
 
+    // always use TLSv1.2 or later. 1.0 and 1.1 are considered insecure at this point
+    curl_easy_setopt_safe(CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+
     if (verifyPeer && params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
         // we're installing our own hostname verification here
         // turn OFF default hostname verification
