@@ -164,6 +164,9 @@ void S3_list_service(S3Protocol protocol, const char *accessKeyId,
         { hostName,                                   // hostName
           0,                                          // bucketName
           NULL,                                       // hostHeaderValue
+          NULL,                                       // curlConnectToFullySpecified
+          0,                                          // curlVerboseLogging
+          0,                                          // unboundTlsVersion
           protocol,                                   // protocol
           S3UriStylePath,                             // uriStyle
           accessKeyId,                                // accessKeyId

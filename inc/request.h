@@ -125,6 +125,8 @@ typedef struct Request
     // The HTTP headers to use for the curl request
     struct curl_slist *headers;
 
+    struct curl_slist *connect_to_list;
+
     // The CURL structure driving the request
     CURL *curl;
 

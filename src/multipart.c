@@ -114,6 +114,9 @@ void S3_initiate_multipart(S3BucketContext *bucketContext, const char *key,
         { bucketContext->hostName,                    // hostName
      	  bucketContext->bucketName,                  // bucketName
           bucketContext->hostHeaderValue,             // hostHeaderValue
+          bucketContext->curlConnectToFullySpecified,
+          bucketContext->curlVerboseLogging,
+          bucketContext->unboundTlsVersion,
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -154,6 +157,9 @@ void S3_abort_multipart_upload(S3BucketContext *bucketContext, const char *key,
         { bucketContext->hostName,                    // hostName
      	  bucketContext->bucketName,                  // bucketName
           bucketContext->hostHeaderValue,             // hostHeaderValue
+          bucketContext->curlConnectToFullySpecified,
+          bucketContext->curlVerboseLogging,
+          bucketContext->unboundTlsVersion,
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -200,6 +206,9 @@ void S3_upload_part(S3BucketContext *bucketContext, const char *key,
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
           bucketContext->hostHeaderValue,             // hostHeaderValue
+          bucketContext->curlConnectToFullySpecified,
+          bucketContext->curlVerboseLogging,
+          bucketContext->unboundTlsVersion,
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -338,6 +347,9 @@ void S3_complete_multipart_upload(S3BucketContext *bucketContext,
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
           bucketContext->hostHeaderValue,             // hostHeaderValue
+          bucketContext->curlConnectToFullySpecified,
+          bucketContext->curlVerboseLogging,
+          bucketContext->unboundTlsVersion,
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId
@@ -931,6 +943,9 @@ void S3_list_multipart_uploads(S3BucketContext *bucketContext,
             { bucketContext->hostName,               // hostName
               bucketContext->bucketName,             // bucketName
               bucketContext->hostHeaderValue,        // hostHeaderValue
+              bucketContext->curlConnectToFullySpecified,
+              bucketContext->curlVerboseLogging,
+              bucketContext->unboundTlsVersion,
               bucketContext->protocol,               // protocol
               bucketContext->uriStyle,               // uriStyle
               bucketContext->accessKeyId,            // accessKeyId
@@ -1053,6 +1068,9 @@ void S3_list_parts(S3BucketContext *bucketContext, const char *key,
             { bucketContext->hostName,               // hostName
               bucketContext->bucketName,             // bucketName
               bucketContext->hostHeaderValue,        // hostHeaderValue
+              bucketContext->curlConnectToFullySpecified,
+              bucketContext->curlVerboseLogging,
+              bucketContext->unboundTlsVersion,
               bucketContext->protocol,               // protocol
               bucketContext->uriStyle,               // uriStyle
               bucketContext->accessKeyId,            // accessKeyId

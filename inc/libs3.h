@@ -719,6 +719,23 @@ typedef struct S3BucketContext
     const char *hostHeaderValue;
 
     /**
+     * Set to non-NULL to fully specify a CONNECT_TO string for cURL. See:
+     * https://curl.se/libcurl/c/CURLOPT_CONNECT_TO.html
+     */
+    const char * curlConnectToFullySpecified;
+
+    /**
+     * Set to nonzero to enable verbose logging for cURL
+     */
+    int curlVerboseLogging;
+
+    /**
+     * By default, the TLS version will be set to 1.2. If this value is non-zero,
+     * then TLS version 1.2 or HIGHER will be allowed
+     */
+    int unboundTlsVersion;
+
+    /**
      * The protocol to use when accessing the bucket
      **/
     S3Protocol protocol;

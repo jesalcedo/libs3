@@ -137,6 +137,9 @@ void S3_test_bucket(S3Protocol protocol, S3UriStyle uriStyle,
         { hostName,                                   // hostName
           bucketName,                                 // bucketName
           NULL,                                       // hostHeaderValue
+          NULL,                                       // curlConnectToFullySpecified
+          0,                                          // curlVerboseLogging
+          0,                                          // unboundTlsVersion
           protocol,                                   // protocol
           uriStyle,                                   // uriStyle
           accessKeyId,                                // accessKeyId
@@ -278,6 +281,9 @@ void S3_create_bucket(S3Protocol protocol, const char *accessKeyId,
         { hostName,                                   // hostName
           bucketName,                                 // bucketName
           NULL,                                       // hostHeaderValue
+          NULL,                                       // curlConnectToFullySpecified
+          0,                                          // curlVerboseLogging
+          0,                                          // unboundTlsVersion
           protocol,                                   // protocol
           S3UriStylePath,                             // uriStyle
           accessKeyId,                                // accessKeyId
@@ -363,6 +369,9 @@ void S3_delete_bucket(S3Protocol protocol, S3UriStyle uriStyle,
         { hostName,                                   // hostName
           bucketName,                                 // bucketName
           NULL,                                       // hostHeaderValue
+          NULL,                                       // curlConnectToFullySpecified
+          0,                                          // curlVerboseLogging
+          0,                                          // unboundTlsVersion
           protocol,                                   // protocol
           uriStyle,                                   // uriStyle
           accessKeyId,                                // accessKeyId
@@ -724,6 +733,9 @@ void S3_list_bucket(const S3BucketContext *bucketContext, const char *prefix,
         { bucketContext->hostName,                    // hostName
           bucketContext->bucketName,                  // bucketName
           bucketContext->hostHeaderValue,             // hostHeaderValue
+          bucketContext->curlConnectToFullySpecified,
+          bucketContext->curlVerboseLogging,
+          bucketContext->unboundTlsVersion,
           bucketContext->protocol,                    // protocol
           bucketContext->uriStyle,                    // uriStyle
           bucketContext->accessKeyId,                 // accessKeyId

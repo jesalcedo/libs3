@@ -1351,9 +1351,8 @@ static int matches_subject_alt_name(const char * hostname, const X509 * server_c
 
                 // Make sure there isn't an embedded NUL character in the DNS name
                 if (ASN1_STRING_length(current_name->d.dNSName) != dns_len) {
-                    // if there is a NUL, then we're considering this a malformed cert
-                    // and we're not going to look any further
-                    break;
+                    // if there is a NUL, assume it's malicious or an accident and ignore it 
+                    fprintf(stderr, "Embedded NUL char in DNS name %s with specified length of %d, skipping this entry\n", dns_name, dns_len);
                 } else if (hostname_len == dns_len && strncasecmp(hostname, dns_name, hostname_len) == 0){
                     // exact match (case-insensitive)
                     result = 1;
@@ -1481,7 +1480,9 @@ static S3Status setup_curl(Request *request,
     }
 
     // Debugging only
-    // curl_easy_setopt_safe(CURLOPT_VERBOSE, 1);
+    if (params->bucketContext.curlVerboseLogging) {
+        curl_easy_setopt_safe(CURLOPT_VERBOSE, 1);
+    }
     
     // Set private data to request for the benefit of S3RequestContext
     curl_easy_setopt_safe(CURLOPT_PRIVATE, request);
@@ -1531,8 +1532,26 @@ static S3Status setup_curl(Request *request,
         curl_easy_setopt_safe(CURLOPT_CAINFO, caInfoG);
     }
 
-    // always use TLSv1.2, TLS 1.3 fails at the moment due to unknown issues 
-    curl_easy_setopt_safe(CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_TLSv1_2);
+    // always use TLSv1.2 or higher, whether we allow higher is configurable
+    if (params->bucketContext.unboundTlsVersion) {
+        curl_easy_setopt_safe(CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+        if (params->bucketContext.curlVerboseLogging) {
+            fprintf(stderr, "Specified TLS 1.2+ for cURL\n");
+        }
+    } else {
+        curl_easy_setopt_safe(CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_TLSv1_2);
+        if (params->bucketContext.curlVerboseLogging) {
+            fprintf(stderr, "Specified TLS 1.2 for cURL\n");
+        }
+    }
+    
+    if (params->bucketContext.curlConnectToFullySpecified && params->bucketContext.curlConnectToFullySpecified[0]) {
+        request->connect_to_list = curl_slist_append(NULL, params->bucketContext.curlConnectToFullySpecified);
+        curl_easy_setopt_safe(CURLOPT_CONNECT_TO, request->connect_to_list);
+        if (params->bucketContext.curlVerboseLogging) {
+            fprintf(stderr, "CURLOPT_CONNECT_TO=%s\n", params->bucketContext.curlConnectToFullySpecified);
+        }
+    }
 
     if (verifyPeer && params->bucketContext.hostHeaderValue && params->bucketContext.hostHeaderValue[0]) {
         // we're installing our own hostname verification here
@@ -1649,6 +1668,10 @@ static void request_deinitialize(Request *request)
     if (request->headers) {
         curl_slist_free_all(request->headers);
     }
+
+    if (request->connect_to_list) {
+        curl_slist_free_all(request->connect_to_list);
+    }
     
     error_parser_deinitialize(&(request->errorParser));
 
@@ -1703,6 +1726,9 @@ static S3Status request_get(const RequestParams *params,
                         
     // Start out with no headers
     request->headers = 0;
+
+    // Start out with no connect-to
+    request->connect_to_list = 0;
 
     // Compute the URL
     if ((status = compose_uri
