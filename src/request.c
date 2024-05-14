@@ -1532,6 +1532,13 @@ static S3Status setup_curl(Request *request,
         curl_easy_setopt_safe(CURLOPT_CAINFO, caInfoG);
     }
 
+    // disable usage of TLS session id's because this breaks stuff sometimes.
+    // from curl docs: https://curl.se/libcurl/c/CURLOPT_SSL_SESSIONID_CACHE.html
+    // While nothing ever should get hurt by attempting to reuse SSL session-IDs,
+    // there seem to be or have been broken SSL implementations in the wild that
+    // may require you to disable this in order for you to succeed.
+    curl_easy_setopt_safe(CURLOPT_SSL_SESSIONID_CACHE, 0L);
+
     // always use TLSv1.2 or higher, whether we allow higher is configurable
     if (params->bucketContext.unboundTlsVersion) {
         curl_easy_setopt_safe(CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
